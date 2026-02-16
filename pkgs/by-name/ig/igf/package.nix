@@ -2,61 +2,14 @@
   lib,
   buildNpmPackage,
   fetchFromGitHub,
-  fetchurl,
   npm-lockfile-fix,
   bun,
+  frida-node-prebuild,
+  frida16-node-prebuild,
   nodejs_22,
   stdenv,
 }:
 
-let
-  fridaPrebuilds = {
-    aarch64-darwin = {
-      frida = {
-        url = "https://github.com/frida/frida/releases/download/17.6.2/frida-v17.6.2-napi-v8-darwin-arm64.tar.gz";
-        hash = "sha256-47kQG90h/puHAr018ESk6dLgQPziWg7hheMQp2rL1MI=";
-      };
-      frida16 = {
-        url = "https://github.com/frida/frida/releases/download/16.7.19/frida-v16.7.19-napi-v8-darwin-arm64.tar.gz";
-        hash = "sha256-KmDxDXGA6FxFhGY3SNvRriU/SJfXw6XkNOX6O0CtNpY=";
-      };
-    };
-    x86_64-darwin = {
-      frida = {
-        url = "https://github.com/frida/frida/releases/download/17.6.2/frida-v17.6.2-napi-v8-darwin-x64.tar.gz";
-        hash = "sha256-JJkC1Pjzbp3TIUPr7Xytw2yd3qf9WVrZbm69WCbseTo=";
-      };
-      frida16 = {
-        url = "https://github.com/frida/frida/releases/download/16.7.19/frida-v16.7.19-napi-v8-darwin-x64.tar.gz";
-        hash = "sha256-bnRd2BLK7XJFZvL1aJFNQ/2eI5QrMaKD4o++1/XrE6c=";
-      };
-    };
-    aarch64-linux = {
-      frida = {
-        url = "https://github.com/frida/frida/releases/download/17.6.2/frida-v17.6.2-napi-v8-linux-arm64.tar.gz";
-        hash = "sha256-TChoxZGLDVhYQ05iZmP/WzP+SGVvrwQvBPYEkha/TrI=";
-      };
-      frida16 = {
-        url = "https://github.com/frida/frida/releases/download/16.7.19/frida-v16.7.19-napi-v8-linux-arm64.tar.gz";
-        hash = "sha256-OImdJ/VGEkPi63TVf08T8N+qo/qxYCofdnatiocMDCc=";
-      };
-    };
-    x86_64-linux = {
-      frida = {
-        url = "https://github.com/frida/frida/releases/download/17.6.2/frida-v17.6.2-napi-v8-linux-x64.tar.gz";
-        hash = "sha256-9rmXqwLGc+oIPh02ty4z8TytNUUAHvo5dVsRsxtAISI=";
-      };
-      frida16 = {
-        url = "https://github.com/frida/frida/releases/download/16.7.19/frida-v16.7.19-napi-v8-linux-x64.tar.gz";
-        hash = "sha256-5+dDsi/3lnyoV4kdwp2r3+/AbdhdUE4HByTDY1tJgok=";
-      };
-    };
-  };
-
-  prebuildsForSystem =
-    fridaPrebuilds.${stdenv.hostPlatform.system}
-      or (throw "Unsupported system ${stdenv.hostPlatform.system}");
-in
 buildNpmPackage {
   pname = "igf";
   version = "0.20.0-unstable-2026-02-10";
@@ -64,6 +17,7 @@ buildNpmPackage {
   src = fetchFromGitHub {
     owner = "ChiChou";
     repo = "Grapefruit";
+    # npm publishes 0.13.1, while upstream main has the current 0.20.x codebase.
     rev = "acc0506eb6f1b477564816eeef2781462fedb437";
     hash = "sha256-5prjcojnz4NGh1CVtsihQfOm5emONnJufLWfFLtOqwg=";
     postFetch = ''
@@ -75,10 +29,20 @@ buildNpmPackage {
 
   nodejs = nodejs_22;
 
+  # Build with npm/node because upstream provides an npm-oriented build script
+  # (`build:npm`), but runtime uses Bun APIs in the produced CLI entrypoint.
   npmBuildScript = "build:npm";
   npmFlags = [ "--ignore-scripts" ];
   dontNpmInstall = true;
+  # We prune manually to pass --ignore-scripts, avoiding Bun-driven install hooks.
   dontNpmPrune = true;
+
+  postPatch = ''
+    # Upstream resolves migrations via ../../drizzle from dist/, but we install
+    # drizzle beside dist/ under $out/lib/node_modules/igf/drizzle.
+    substituteInPlace src/lib/store.ts \
+      --replace-fail 'path.join(import.meta.dirname, "..", "..", "drizzle")' 'path.join(import.meta.dirname, "..", "drizzle")'
+  '';
 
   installPhase = ''
     runHook preInstall
@@ -92,19 +56,17 @@ buildNpmPackage {
     cp -r dist "$packageOut/"
     cp -r bin "$packageOut/"
     cp -r drizzle "$packageOut/"
-    # dist/index.mjs resolves migrations from ../../drizzle
-    cp -r drizzle "$out/lib/node_modules/drizzle"
     cp package.json "$packageOut/"
     cp -r node_modules "$packageOut/"
 
-    tar -xzf ${fetchurl prebuildsForSystem.frida} -C "$packageOut/node_modules/frida"
-    tar -xzf ${fetchurl prebuildsForSystem.frida16} -C "$packageOut/node_modules/frida16"
+    # igf supports --frida 16 and --frida 17 at runtime by selecting either
+    # `frida16` or `frida` bindings dynamically.
+    cp ${frida-node-prebuild}/build/frida_binding.node "$packageOut/node_modules/frida/build/frida_binding.node"
+    cp ${frida16-node-prebuild}/build/frida_binding.node "$packageOut/node_modules/frida16/build/frida_binding.node"
 
     mkdir -p "$out/bin"
-    cat > "$out/bin/igf" <<EOF
-    #!${stdenv.shell}
-    exec ${lib.getExe bun} "$packageOut/dist/index.mjs" "\$@"
-    EOF
+    echo '#!${stdenv.shell}' > "$out/bin/igf"
+    echo 'exec ${lib.getExe bun} '"\"$packageOut/dist/index.mjs\"" ' "$@"' >> "$out/bin/igf"
     chmod +x "$out/bin/igf"
 
     nodejsInstallManuals "$packageOut/package.json"
@@ -125,6 +87,12 @@ buildNpmPackage {
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ caverav ];
     mainProgram = "igf";
-    platforms = builtins.attrNames fridaPrebuilds;
+    platforms = [
+      "aarch64-darwin"
+      "x86_64-darwin"
+      "aarch64-linux"
+      "x86_64-linux"
+    ];
+    sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
   };
 }
