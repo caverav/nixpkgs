@@ -106,10 +106,10 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     cp -r ${fridaNodePrebuilds}/frida16/build "$packageOut/node_modules/frida16/"
 
     mkdir -p "$out/bin"
-    cat > "$out/bin/igf" <<EOF
-#!${stdenvNoCC.shell}
-exec ${lib.getExe bun} "$packageOut/dist/index.mjs" "\$@"
-EOF
+    printf '%s\n' \
+      "#!${stdenvNoCC.shell}" \
+      "exec ${lib.getExe bun} \"$packageOut/dist/index.mjs\" \"\$@\"" \
+      > "$out/bin/igf"
     chmod +x "$out/bin/igf"
 
     runHook postInstall
