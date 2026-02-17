@@ -1,64 +1,19 @@
 {
   lib,
-  buildNpmPackage,
+  pkgs,
+  stdenvNoCC,
   fetchFromGitHub,
-  fetchurl,
   npm-lockfile-fix,
   bun,
-  nodejs_22,
-  stdenv,
+  writableTmpDirAsHomeHook,
 }:
-
 let
-  fridaPrebuilds = {
-    aarch64-darwin = {
-      frida = {
-        url = "https://github.com/frida/frida/releases/download/17.6.2/frida-v17.6.2-napi-v8-darwin-arm64.tar.gz";
-        hash = "sha256-47kQG90h/puHAr018ESk6dLgQPziWg7hheMQp2rL1MI=";
-      };
-      frida16 = {
-        url = "https://github.com/frida/frida/releases/download/16.7.19/frida-v16.7.19-napi-v8-darwin-arm64.tar.gz";
-        hash = "sha256-KmDxDXGA6FxFhGY3SNvRriU/SJfXw6XkNOX6O0CtNpY=";
-      };
-    };
-    x86_64-darwin = {
-      frida = {
-        url = "https://github.com/frida/frida/releases/download/17.6.2/frida-v17.6.2-napi-v8-darwin-x64.tar.gz";
-        hash = "sha256-JJkC1Pjzbp3TIUPr7Xytw2yd3qf9WVrZbm69WCbseTo=";
-      };
-      frida16 = {
-        url = "https://github.com/frida/frida/releases/download/16.7.19/frida-v16.7.19-napi-v8-darwin-x64.tar.gz";
-        hash = "sha256-bnRd2BLK7XJFZvL1aJFNQ/2eI5QrMaKD4o++1/XrE6c=";
-      };
-    };
-    aarch64-linux = {
-      frida = {
-        url = "https://github.com/frida/frida/releases/download/17.6.2/frida-v17.6.2-napi-v8-linux-arm64.tar.gz";
-        hash = "sha256-TChoxZGLDVhYQ05iZmP/WzP+SGVvrwQvBPYEkha/TrI=";
-      };
-      frida16 = {
-        url = "https://github.com/frida/frida/releases/download/16.7.19/frida-v16.7.19-napi-v8-linux-arm64.tar.gz";
-        hash = "sha256-OImdJ/VGEkPi63TVf08T8N+qo/qxYCofdnatiocMDCc=";
-      };
-    };
-    x86_64-linux = {
-      frida = {
-        url = "https://github.com/frida/frida/releases/download/17.6.2/frida-v17.6.2-napi-v8-linux-x64.tar.gz";
-        hash = "sha256-9rmXqwLGc+oIPh02ty4z8TytNUUAHvo5dVsRsxtAISI=";
-      };
-      frida16 = {
-        url = "https://github.com/frida/frida/releases/download/16.7.19/frida-v16.7.19-napi-v8-linux-x64.tar.gz";
-        hash = "sha256-5+dDsi/3lnyoV4kdwp2r3+/AbdhdUE4HByTDY1tJgok=";
-      };
-    };
-  };
-
-  prebuildsForSystem =
-    fridaPrebuilds.${stdenv.hostPlatform.system}
-      or (throw "Unsupported system ${stdenv.hostPlatform.system}");
+  fridaNodePrebuilds = pkgs."frida-node-prebuilds";
 in
-buildNpmPackage {
+stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "igf";
+  # The latest npm tag is currently incompatible with modern Frida; use upstream's
+  # revived snapshot until a new release is published.
   version = "0.20.0-unstable-2026-02-10";
 
   src = fetchFromGitHub {
@@ -71,20 +26,68 @@ buildNpmPackage {
     '';
   };
 
-  npmDepsHash = "sha256-e4Lyet3zrvKOoXuzJ2AA0Xk94w1yKK/XixTwa6P6ZQ8=";
+  node_modules = stdenvNoCC.mkDerivation {
+    pname = "${finalAttrs.pname}-node_modules";
+    inherit (finalAttrs) version src;
 
-  nodejs = nodejs_22;
+    impureEnvVars = lib.fetchers.proxyImpureEnvVars ++ [
+      "GIT_PROXY_COMMAND"
+      "SOCKS_SERVER"
+    ];
 
-  npmBuildScript = "build:npm";
-  npmFlags = [ "--ignore-scripts" ];
-  dontNpmInstall = true;
-  dontNpmPrune = true;
+    nativeBuildInputs = [
+      bun
+      writableTmpDirAsHomeHook
+    ];
+
+    dontConfigure = true;
+    dontFixup = true;
+
+    buildPhase = ''
+      runHook preBuild
+
+      export BUN_INSTALL_CACHE_DIR=$(mktemp -d)
+
+      bun install \
+        --force \
+        --frozen-lockfile \
+        --ignore-scripts \
+        --no-progress
+
+      runHook postBuild
+    '';
+
+    installPhase = ''
+      runHook preInstall
+      cp -R ./node_modules $out
+      runHook postInstall
+    '';
+
+    outputHash = "sha256-fY9N8skqABZCKvSJmfBvXGRIMcgJnR1rgcEHqbrwuW4=";
+    outputHashMode = "recursive";
+  };
+
+  nativeBuildInputs = [
+    bun
+    writableTmpDirAsHomeHook
+  ];
+
+  configurePhase = ''
+    runHook preConfigure
+    mkdir -p node_modules
+    cp -R ${finalAttrs.node_modules}/. node_modules/
+    runHook postConfigure
+  '';
+
+  buildPhase = ''
+    runHook preBuild
+    bun scripts/build-npm.ts
+    bun node_modules/tsdown/dist/run.mjs --env.NODE_ENV=production
+    runHook postBuild
+  '';
 
   installPhase = ''
     runHook preInstall
-
-    npm prune --omit=dev --no-save --ignore-scripts
-    find node_modules -maxdepth 1 -type d -empty -delete
 
     packageOut="$out/lib/node_modules/igf"
     mkdir -p "$packageOut"
@@ -92,22 +95,22 @@ buildNpmPackage {
     cp -r dist "$packageOut/"
     cp -r bin "$packageOut/"
     cp -r drizzle "$packageOut/"
-    # dist/index.mjs resolves migrations from ../../drizzle
-    cp -r drizzle "$out/lib/node_modules/drizzle"
     cp package.json "$packageOut/"
     cp -r node_modules "$packageOut/"
+    chmod -R u+w "$packageOut/node_modules/frida" "$packageOut/node_modules/frida16"
+    substituteInPlace "$packageOut/dist/index.mjs" \
+      --replace-fail '"..", "..", "drizzle"' '"..", "drizzle"'
 
-    tar -xzf ${fetchurl prebuildsForSystem.frida} -C "$packageOut/node_modules/frida"
-    tar -xzf ${fetchurl prebuildsForSystem.frida16} -C "$packageOut/node_modules/frida16"
+    # Runtime can select either major version through FRIDA_VERSION/--frida.
+    cp -r ${fridaNodePrebuilds}/frida/build "$packageOut/node_modules/frida/"
+    cp -r ${fridaNodePrebuilds}/frida16/build "$packageOut/node_modules/frida16/"
 
     mkdir -p "$out/bin"
     cat > "$out/bin/igf" <<EOF
-    #!${stdenv.shell}
-    exec ${lib.getExe bun} "$packageOut/dist/index.mjs" "\$@"
-    EOF
+#!${stdenvNoCC.shell}
+exec ${lib.getExe bun} "$packageOut/dist/index.mjs" "\$@"
+EOF
     chmod +x "$out/bin/igf"
-
-    nodejsInstallManuals "$packageOut/package.json"
 
     runHook postInstall
   '';
@@ -125,6 +128,7 @@ buildNpmPackage {
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ caverav ];
     mainProgram = "igf";
-    platforms = builtins.attrNames fridaPrebuilds;
+    platforms = (fridaNodePrebuilds.meta.platforms or [ ]);
+    sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
   };
-}
+})
