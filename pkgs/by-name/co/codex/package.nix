@@ -115,6 +115,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     maintainers = with lib.maintainers; [
       malo
       delafthi
+      caverav
     ];
     platforms = lib.platforms.unix;
   };
