@@ -4441,17 +4441,17 @@
     githubId = 25623213;
     name = "Philipp Böschen";
   };
-  caverav = {
-    email = "camilo@fvv.cl";
-    github = "caverav";
-    githubId = 66751764;
-    name = "Camilo Vera Vidales";
-  };
   caugner = {
     email = "nixos@caugner.de";
     github = "caugner";
     githubId = 495429;
     name = "Claas Augner";
+  };
+  caverav = {
+    email = "camilo@fvv.cl";
+    github = "caverav";
+    githubId = 66751764;
+    name = "Camilo Vera Vidales";
   };
   cawilliamson = {
     email = "home@chrisaw.com";
