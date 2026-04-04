@@ -15151,12 +15151,12 @@
     "emulator": "36.3.10",
     "ndk": "29.0.14206865",
     "ndk-bundle": "22.1.7171670",
-    "platform-tools": "36.0.0",
+    "platform-tools": "37.0.0",
     "platforms": "36.1",
     "skiaparser": "8",
     "sources": "36.1",
     "tools": "26.1.1",
-    "fingerprint": "aeb6a1bcc1fd6600"
+    "fingerprint": "973bb971c3bf1554"
   },
   "licenses": {
     "android-googletv-license": [
@@ -26654,6 +26654,47 @@
         "revision-details": {
           "major:0": "36",
           "micro:2": "2",
+          "minor:1": "0"
+        },
+        "type-details": {
+          "element-attributes": {
+            "xsi:type": "ns5:genericDetailsType"
+          }
+        }
+      },
+      "37.0.0": {
+        "archives": [
+          {
+            "arch": "all",
+            "os": "linux",
+            "sha1": "bcf323933980a59dccc3f14c339aed5fb2171163",
+            "size": 9167924,
+            "url": "https://dl.google.com/android/repository/platform-tools_r37.0.0-linux.zip"
+          },
+          {
+            "arch": "all",
+            "os": "macosx",
+            "sha1": "ff8facde137e57994112672a0d0f411a3ca7b201",
+            "size": 16442198,
+            "url": "https://dl.google.com/android/repository/platform-tools_r37.0.0-darwin.zip"
+          },
+          {
+            "arch": "all",
+            "os": "windows",
+            "sha1": "8a8351438a9bde81726129214940e0275f7949c7",
+            "size": 8092184,
+            "url": "https://dl.google.com/android/repository/platform-tools_r37.0.0-win.zip"
+          }
+        ],
+        "displayName": "Android SDK Platform-Tools",
+        "last-available-day": 20547,
+        "license": "android-sdk-license",
+        "name": "platform-tools",
+        "path": "platform-tools",
+        "revision": "37.0.0",
+        "revision-details": {
+          "major:0": "37",
+          "micro:2": "0",
           "minor:1": "0"
         },
         "type-details": {
