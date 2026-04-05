@@ -136,6 +136,7 @@ rustPlatform.buildRustPackage.override { stdenv = clangStdenv; } (finalAttrs: {
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [
       ck3d
+      caverav
     ];
     platforms = lib.platforms.unix;
   };
