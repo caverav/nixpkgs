@@ -331,6 +331,7 @@ let
             rec {
               stable = with lib.maintainers; [
                 alapshin
+                caverav
               ];
               beta = stable;
               canary = stable;
