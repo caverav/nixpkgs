@@ -16,9 +16,9 @@ let
       inherit tiling_wm;
     };
   stableVersion = {
-    version = "2025.3.2.6"; # "Android Studio Panda 2 | 2025.3.2"
-    sha256Hash = "sha256-MpQtjNdogZLPPNB78oL7EgA1ub2bVubxPFVA5tOYB+k=";
-    url = "https://edgedl.me.gvt1.com/android/studio/ide-zips/2025.3.2.6/android-studio-panda2-linux.tar.gz";
+    version = "2025.3.3.6"; # "Android Studio Panda 3 | 2025.3.3"
+    sha256Hash = "sha256-NBrA/BfbyYfQUw4M+zJxJUgFM9ZzOoifITdja+zUhqU=";
+    url = "https://edgedl.me.gvt1.com/android/studio/ide-zips/2025.3.3.6/android-studio-panda3-linux.tar.gz";
   };
   betaVersion = {
     version = "2025.3.2.5"; # "Android Studio Panda 2 | 2025.3.2 RC 1"
